@@ -1,0 +1,8 @@
+region = ""
+customer_region = ""
+cidr = ""
+aws_account_id = ""
+transit_gateway_id = ""
+confluent_cloud_api_key = ""
+confluent_cloud_api_secret = ""
+resource_identifier = ""
