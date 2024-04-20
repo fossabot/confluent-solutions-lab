@@ -1,5 +1,5 @@
-region = ""
-customer_region = ""
+counfluent_cloud_region = ""
+vpc_region = ""
 cidr = ""
 aws_account_id = ""
 transit_gateway_id = ""

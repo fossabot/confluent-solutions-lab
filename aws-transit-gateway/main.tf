@@ -30,8 +30,8 @@ resource "confluent_environment" "demo" {
 resource "confluent_network" "transit-gateway" {
   display_name     = "Transit Gateway Network"
   cloud            = "AWS"
-  region           = var.region
-  cidr             = var.cidr
+  region           = var.counfluent_cloud_region
+  cidr             = var.confluent_cloud_cidr
   connection_types = ["TRANSITGATEWAY"]
   environment {
     id = confluent_environment.demo.id
@@ -73,7 +73,7 @@ resource "confluent_kafka_cluster" "dedicated" {
 
 # Create a Transit Gateway Connection to Confluent Cloud on AWS
 provider "aws" {
-  region = var.customer_region
+  region = var.vpc_region
   default_tags {
     tags = {
       owner_email = var.resource_identifier
@@ -113,10 +113,11 @@ resource "aws_ec2_transit_gateway_vpc_attachment_accepter" "accepter" {
 
 # Create a VPC
 resource "aws_vpc" "my_vpc" {
-  cidr_block = "10.0.0.0/16"
+  # cidr_block = "10.0.0.0/16"
+  cidr_block = var.vpc_cidr
 
   tags = {
-    Name = "sj_vpc"
+    Name = "VPC"
   }
 }
 
@@ -125,10 +126,17 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
+locals {
+  subnet_1 = cidrsubnet(var.vpc_cidr, 4, 0)  # First /20 subnet
+  subnet_2 = cidrsubnet(var.vpc_cidr, 4, 1)  # Second /20 subnet
+  subnet_3 = cidrsubnet(var.vpc_cidr, 4, 2)  # Third /20 subnet
+}
+
 # Create subnet 1
 resource "aws_subnet" "public_subnet_1" {
   vpc_id     = aws_vpc.my_vpc.id
-  cidr_block = "10.0.16.0/20"
+  # cidr_block = "10.0.16.0/20"
+  cidr_block = local.subnet_1
   availability_zone = data.aws_availability_zones.available.names[0]
   map_public_ip_on_launch = true
   tags = {
@@ -139,7 +147,8 @@ resource "aws_subnet" "public_subnet_1" {
 # Create subnet 2
 resource "aws_subnet" "public_subnet_2" {
   vpc_id     = aws_vpc.my_vpc.id
-  cidr_block = "10.0.32.0/20"
+  # cidr_block = "10.0.32.0/20"
+  cidr_block = local.subnet_2
   map_public_ip_on_launch = true
   availability_zone = data.aws_availability_zones.available.names[1]
   tags = {
@@ -150,7 +159,8 @@ resource "aws_subnet" "public_subnet_2" {
 # Create subnet 3
 resource "aws_subnet" "public_subnet_3" {
   vpc_id     = aws_vpc.my_vpc.id
-  cidr_block = "10.0.48.0/20"
+  # cidr_block = "10.0.48.0/20"
+  cidr_block = local.subnet_3
   map_public_ip_on_launch = true
   availability_zone = data.aws_availability_zones.available.names[2]
   tags = {

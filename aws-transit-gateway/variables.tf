@@ -9,12 +9,12 @@ variable "confluent_cloud_api_secret" {
   sensitive   = true
 }
 
-variable "region" {
+variable "counfluent_cloud_region" {
   description = "The region of Confluent Cloud Network."
   type        = string
 }
 
-variable "cidr" {
+variable "confluent_cloud_cidr" {
   description = "The CIDR of Confluent Cloud Network."
   type        = string
 }
@@ -29,8 +29,13 @@ variable "transit_gateway_id" {
   type        = string
 }
 
-variable "customer_region" {
+variable "vpc_region" {
   description = "The region of the AWS VPC."
+  type        = string
+}
+
+variable "vpc_cidr" {
+  description = "A /16 VPC CIDR of the AWS VPC"
   type        = string
 }
 
