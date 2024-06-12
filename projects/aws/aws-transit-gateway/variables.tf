@@ -4,7 +4,7 @@ variable "confluent_cloud_api_key" {
 }
 
 variable "confluent_cloud_api_secret" {
-  description = "Confluent Cloud API Secret."
+  description = "Confluent Cloud API Secret." 
   type        = string
   sensitive   = true
 }
@@ -29,11 +29,6 @@ variable "transit_gateway_id" {
   type        = string
 }
 
-variable "vpc_region" {
-  description = "The region of the AWS VPC."
-  type        = string
-}
-
 variable "vpc_cidr" {
   description = "A /16 VPC CIDR of the AWS VPC"
   type        = string
@@ -45,7 +40,17 @@ variable "routes" {
   default     = ["100.64.0.0/10", "10.0.0.0/8", "192.168.0.0/16", "172.16.0.0/12"]
 }
 
+variable "vpc_region" {
+  description = "The region of the AWS VPC."
+  type        = string
+
+}
+
 variable "resource_identifier" {
     description = "Label to tag AWS resources"
     type = string
+}
+
+variable "cloud_service_provider" {
+  type = string
 }
