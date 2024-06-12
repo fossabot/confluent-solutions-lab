@@ -1,6 +1,5 @@
 counfluent_cloud_region = ""
-vpc_region = ""
-cidr = ""
+confluent_cloud_cidr = ""
 aws_account_id = ""
 transit_gateway_id = ""
 confluent_cloud_api_key = ""
