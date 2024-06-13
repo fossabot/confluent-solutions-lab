@@ -13,5 +13,9 @@ output "access_ec2" {
       If you get an error saying "SessionManagerPlugin is not found", you will also need to install the plugin on your computer. 
       See: https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html
 
+    To test connectivity:
+
+      openssl s_client -connect ${replace(module.cluster.bootstrap_endpoint, "SASL_SSL://", "")}    
+
    EOT
 }

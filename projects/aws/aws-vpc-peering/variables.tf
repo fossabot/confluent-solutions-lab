@@ -9,24 +9,10 @@ variable "confluent_cloud_api_secret" {
   sensitive   = true
 }
 
-variable "region" {
-  description = "The region of Confluent Cloud Network."
+variable "vpc_region" {
+  description = "The region of the AWS VPC."
   type        = string
-}
 
-variable "cidr" {
-  description = "The CIDR of Confluent Cloud Network."
-  type        = string
-}
-
-variable "aws_account_id" {
-  description = "The AWS Account ID of the peer VPC owner (12 digits)."
-  type        = string
-}
-
-variable "customer_region" {
-  description = "The region of the AWS peer VPC."
-  type        = string
 }
 
 variable "resource_identifier" {
@@ -34,7 +20,26 @@ variable "resource_identifier" {
     type = string
 }
 
-variable "transit_gateway_id" {
-  description = "The AWS Transit Gateway ID of the VPC that you're connecting with Confluent Cloud."
+variable "confluent_cloud_cidr" {
+  description = "The CIDR of Confluent Cloud Network."
+  type        = string
+}
+
+variable "counfluent_cloud_region" {
+  description = "The region of Confluent Cloud Network."
+  type        = string
+}
+
+variable "cloud_service_provider" {
+  type = string
+}
+
+variable "aws_account_id" {
+  description = "The AWS Account ID of the VPC owner (12 digits)."
+  type        = string
+}
+
+variable "vpc_cidr" {
+  description = "A /16 VPC CIDR of the AWS VPC"
   type        = string
 }

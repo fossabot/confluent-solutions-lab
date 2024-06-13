@@ -32,7 +32,7 @@ module "environment" {
 
 # Create Confluent Cloud Network
 module "network" {
-  source = "../../../modules/confluent/aws-transit-gateway-network"
+  source = "../../../modules/confluent/aws-peering-and-transit-gateway-network"
   counfluent_cloud_region = var.counfluent_cloud_region
   confluent_cloud_cidr = var.confluent_cloud_cidr
   network_type = ["TRANSITGATEWAY"]
@@ -63,9 +63,7 @@ module "systems_manager" {
 resource "confluent_transit_gateway_attachment" "aws" {
   display_name = "AWS Transit Gateway Attachment"
   aws {
-    # ram_resource_share_arn = aws_ram_resource_share.confluent.arn
     ram_resource_share_arn = module.transit_gateway.ram_resource_share_arn
-    # transit_gateway_id     = data.aws_ec2_transit_gateway.input.id
     transit_gateway_id = var.transit_gateway_id
     routes                 = var.routes
   }

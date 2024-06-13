@@ -17,60 +17,8 @@ provider "confluent" {
   cloud_api_secret = var.confluent_cloud_api_secret
 }
 
-resource "confluent_environment" "staging" {
-  display_name = "Demo"
-  stream_governance {
-    package = "ESSENTIALS"
-  }
-}
-
-
-resource "confluent_network" "peering" {
-  display_name     = "Peering Network"
-  cloud            = "AWS"
-  region           = var.region
-  cidr             = var.cidr
-  connection_types = ["PEERING"]
-  environment {
-    id = confluent_environment.staging.id
-  }
-}
-
-resource "confluent_peering" "aws" {
-  display_name = "AWS Peering"
-  aws {
-    account         = var.aws_account_id
-    vpc             = aws_vpc.my_vpc.id
-    routes          = [aws_vpc.my_vpc.cidr_block]
-    customer_region = var.customer_region
-  }
-  environment {
-    id = confluent_environment.staging.id
-  }
-  network {
-    id = confluent_network.peering.id
-  }
-}
-
-resource "confluent_kafka_cluster" "dedicated" {
-  display_name = "Demo"
-  availability = "SINGLE_ZONE"
-  cloud        = confluent_network.peering.cloud
-  region       = confluent_network.peering.region
-  dedicated {
-    cku = 1
-  }
-  environment {
-    id = confluent_environment.staging.id
-  }
-  network {
-    id = confluent_network.peering.id
-  }
-}
-
-# Create a VPC Peering Connection to Confluent Cloud on AWS
 provider "aws" {
-  region = var.customer_region
+  region = var.vpc_region
   default_tags {
     tags = {
       owner_email = var.resource_identifier
@@ -78,89 +26,58 @@ provider "aws" {
   }
 }
 
-# Create a VPC
-resource "aws_vpc" "my_vpc" {
-  cidr_block = "10.0.0.0/16"
+module "environment" {
+  source = "../../../modules/confluent/environment"
+}
 
-  tags = {
-    Name = "sj_vpc"
+# Create Confluent Cloud Network
+module "network" {
+  source = "../../../modules/confluent/aws-peering-and-transit-gateway-network"
+  counfluent_cloud_region = var.counfluent_cloud_region
+  confluent_cloud_cidr = var.confluent_cloud_cidr
+  network_type = ["PEERING"]
+  environment_id = module.environment.environment_id
+  cloud_service_provider = var.cloud_service_provider
+}
+
+resource "confluent_peering" "aws" {
+  display_name = "AWS Peering"
+  aws {
+    account         = var.aws_account_id
+    vpc             = module.vpc_setup.vpc_id
+    routes          = [var.vpc_cidr]
+    customer_region = var.vpc_region
+  }
+  environment {
+    id = module.environment.environment_id
+  }
+  network {
+    id = module.network.network_id
   }
 }
 
-# Declare Availability Zones
-data "aws_availability_zones" "available" {
-  state = "available"
+module "cluster" {
+  source = "../../../modules/confluent/kafka-cluster"
+  cloud_service_provider = var.cloud_service_provider
+  counfluent_cloud_region = var.counfluent_cloud_region
+  environment_id = module.environment.environment_id
+  network_id = module.network.network_id
 }
 
-# Create subnet 1
-resource "aws_subnet" "public_subnet_1" {
-  vpc_id     = aws_vpc.my_vpc.id
-  cidr_block = "10.0.16.0/20"
-  availability_zone = data.aws_availability_zones.available.names[0]
-  map_public_ip_on_launch = true
-  tags = {
-    Name = "public_subnet_1"
-  }
+module "vpc_setup" {
+  source = "../../../modules/aws/vpc-setup"
+  vpc_cidr = var.vpc_cidr
 }
 
-# Create subnet 2
-resource "aws_subnet" "public_subnet_2" {
-  vpc_id     = aws_vpc.my_vpc.id
-  cidr_block = "10.0.32.0/20"
-  map_public_ip_on_launch = true
-  availability_zone = data.aws_availability_zones.available.names[1]
-  tags = {
-    Name = "public_subnet_2"
-  }
+module "systems_manager" {
+  source = "../../../modules/aws/systems-manager"
+  vpc_id = module.vpc_setup.vpc_id
+  public_subnet_1_id = module.vpc_setup.public_subnet_1_id
 }
-
-# Create subnet 3
-resource "aws_subnet" "public_subnet_3" {
-  vpc_id     = aws_vpc.my_vpc.id
-  cidr_block = "10.0.48.0/20"
-  map_public_ip_on_launch = true
-  availability_zone = data.aws_availability_zones.available.names[2]
-  tags = {
-    Name = "public_subnet_3"
-  }
-}
-
-# Internet Gateway
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.my_vpc.id
-  tags = {
-    Name = "igw"
-  }
-}
-
-# Route Table
-resource "aws_route_table" "rt" {
-  vpc_id = aws_vpc.my_vpc.id
-  tags = {
-    Name = "rt"
-  }
-}
-
-# Associate Route Table
-resource "aws_route_table_association" "public_subnet_1" {
-  subnet_id      = aws_subnet.public_subnet_1.id
-  route_table_id = aws_route_table.rt.id
-}
-
-resource "aws_route_table_association" "public_subnet_2" {
-  subnet_id      = aws_subnet.public_subnet_2.id
-  route_table_id = aws_route_table.rt.id
-}
-
-resource "aws_route_table_association" "public_subnet_3" {
-  subnet_id      = aws_subnet.public_subnet_3.id
-  route_table_id = aws_route_table.rt.id
-}
-
 
 # Accepter's side of the connection.
 data "aws_vpc_peering_connection" "accepter" {
-  vpc_id      = confluent_network.peering.aws[0].vpc
+  vpc_id = module.network.confluent_vpc_id
   peer_vpc_id = confluent_peering.aws.aws[0].vpc
 }
 
@@ -171,55 +88,11 @@ resource "aws_vpc_peering_connection_accepter" "peer" {
 
 # Find the routing table
 data "aws_route_tables" "rts" {
-  vpc_id = aws_vpc.my_vpc.id
+  vpc_id = module.vpc_setup.vpc_id
 }
 
 resource "aws_route" "r" {
-#   for_each                  = toset(data.aws_route_tables.rts.ids)
-  route_table_id            = aws_route_table.rt.id
-  destination_cidr_block    = confluent_network.peering.cidr
+  route_table_id            = module.vpc_setup.route_table_id
+  destination_cidr_block    = var.confluent_cloud_cidr
   vpc_peering_connection_id = data.aws_vpc_peering_connection.accepter.id
-}
-
-resource "aws_route" "r_public" {
-  route_table_id         = aws_route_table.rt.id
-  destination_cidr_block = "0.0.0.0/0"
-  gateway_id = "${aws_internet_gateway.igw.id}"
-}
-
-resource "aws_security_group" "proxy_security_group" {
-  name        = "proxy_security_group"
-  description = "Security Group associated with the subnet created for the proxy server"
-  vpc_id      = aws_vpc.my_vpc.id
-
-  ingress {
-    description = "Allow 9092 for all"
-    from_port   = 9092
-    to_port     = 9092
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "Allow 22 for all"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "Allow 443 for all"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
 }

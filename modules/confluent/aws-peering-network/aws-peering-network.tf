@@ -25,3 +25,8 @@ output "network_id" {
 output "confluent_cloud_aws_account" {
   value = confluent_network.network.aws[0].account
 }
+
+output "confluent_vpc_id" {
+  value = confluent_network.network.aws[0].vpc
+}
+
