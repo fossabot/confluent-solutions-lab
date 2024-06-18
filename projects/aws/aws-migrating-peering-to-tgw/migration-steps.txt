@@ -1,0 +1,67 @@
+### Migration to TGW
+
+# Step 1: Attach your VPC to the TGW
+
+data "aws_ec2_transit_gateway" "input" {
+  id = var.transit_gateway_id
+}
+
+resource "aws_ec2_transit_gateway_vpc_attachment" "attachment" {
+  subnet_ids = [
+    aws_subnet.public_subnet_1.id,
+    aws_subnet.public_subnet_2.id,
+    aws_subnet.public_subnet_3.id
+  ]
+  transit_gateway_id = data.aws_ec2_transit_gateway.input.id
+  vpc_id             = aws_vpc.my_vpc.id
+}
+
+# Step 2: Share TGW with Confluent Cloud
+
+resource "aws_ram_resource_share" "confluent" {
+  name                      = "resource-share-with-confluent"
+  allow_external_principals = true
+}
+
+resource "aws_ram_principal_association" "confluent" {
+  principal          = confluent_network.peering.aws[0].account
+  resource_share_arn = aws_ram_resource_share.confluent.arn
+}
+
+resource "aws_ram_resource_association" "example" {
+  resource_arn       = data.aws_ec2_transit_gateway.input.arn
+  resource_share_arn = aws_ram_resource_share.confluent.arn
+}
+
+# Step 3: Create TGW Attachment on CC
+
+resource "confluent_transit_gateway_attachment" "aws" {
+  display_name = "AWS Transit Gateway Attachment"
+  aws {
+    ram_resource_share_arn = aws_ram_resource_share.confluent.arn
+    transit_gateway_id     = data.aws_ec2_transit_gateway.input.id
+    routes                 = ["10.0.0.0/15"]
+  }
+  environment {
+    id = confluent_environment.staging.id
+  }
+  network {
+    id = confluent_network.peering.id
+  }
+}
+
+# Step 4: Accept TGW attachment on AWS
+
+data "aws_ec2_transit_gateway_vpc_attachment" "accepter" {
+  id = confluent_transit_gateway_attachment.aws.aws[0].transit_gateway_attachment_id
+}
+
+resource "aws_ec2_transit_gateway_vpc_attachment_accepter" "accepter" {
+  transit_gateway_attachment_id = data.aws_ec2_transit_gateway_vpc_attachment.accepter.id
+}
+
+# Step 5: Change route table to send traffic to TGW instead of Peering (manual step in AWS). Make sure all clients are still working.
+
+# Step 6: Delete the peering connection on Confluent Cloud (manual step in CC). Once this is done, confirm that the peering has also been deleted on AWS automatically.
+
+# Step 7: Work with Confluent support to swap the broader CIDR with the narrow one. This needs to be done in a specific way to make sure there is no disruption.
