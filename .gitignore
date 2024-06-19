@@ -4,4 +4,4 @@
 *.tfvars
 **/.terraform/*
 *.terraform.lock.hcl
-Migration.tf
+.DS_Store
